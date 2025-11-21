@@ -69,7 +69,7 @@ rhoFilter::rhoFilter(
     v.resize(state_space_dim, 1);
     v.setZero();
     zeta.resize(4 * state_space_dim, 1);
-    zeta.setZero();
+    zeta.setZero(); // Do I initialize it at zero?
     next_zeta.resize(4 * state_space_dim, 1);
     next_zeta.setZero();
 }
