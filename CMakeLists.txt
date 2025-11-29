@@ -3,30 +3,41 @@ project(rho_filter)
 
 set(CMAKE_CXX_STANDARD 17)
 
-find_package(ament_cmake REQUIRED)
-find_package(rclcpp REQUIRED)
-find_package(std_msgs REQUIRED)
-find_package(Eigen3 REQUIRED)
-
+find_package(Eigen3 REQUIRED) # Use at least 3.3, but need to be arbitary to allow unit tests
 include_directories(include ${Eigen3_INCLUDE_DIRS})
 
-# Compile the core logic as a separate library
 add_library(rho_filter_lib src/rhoFilter.cpp)
 target_link_libraries(rho_filter_lib Eigen3::Eigen)
-
-# Compile the ROS node
-add_executable(rho_filter_node src/rho_node.cpp)
-ament_target_dependencies(rho_filter_node rclcpp std_msgs)
-
-# Link the node to the logic library and Eigen
-target_link_libraries(rho_filter_node rho_filter_lib Eigen3::Eigen)
-
-install(TARGETS
-  rho_filter_lib
-  rho_filter_node
-  ARCHIVE DESTINATION lib
-  LIBRARY DESTINATION lib
-  RUNTIME DESTINATION lib/${PROJECT_NAME}
+target_include_directories(rho_filter_lib PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
 )
 
-ament_package()
+# Detect ROS 2
+find_package(ament_cmake QUIET)
+
+if(ament_cmake_FOUND)
+    message(STATUS "ROS 2 found. Building for ROS 2.")
+    find_package(rclcpp REQUIRED)
+    find_package(std_msgs REQUIRED)
+    find_package(eigen3_cmake_module REQUIRED)
+
+    add_executable(rho_filter_node src/rho_node.cpp)
+    target_link_libraries(rho_filter_node rho_filter_lib)
+    ament_target_dependencies(rho_filter_node rclcpp std_msgs)
+
+    install(TARGETS rho_filter_lib rho_filter_node
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION lib
+    RUNTIME DESTINATION lib/${PROJECT_NAME}
+    )
+    install(DIRECTORY include/ DESTINATION include)
+
+    ament_package()
+
+else()
+    message(STATUS "ROS 2 not found. Building standalone test.")
+    
+    add_executable(manual_test test/manual_test.cpp)
+    target_link_libraries(manual_test rho_filter_lib)
+endif()

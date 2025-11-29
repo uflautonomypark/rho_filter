@@ -1,5 +1,7 @@
 #include <iostream>
-#include "rhoFilter.hpp"
+#include <Eigen/Dense>
+#include "rho_filter/rhoFilter.hpp"
+
 
 int main() {
     double sampling_time = 0.001;

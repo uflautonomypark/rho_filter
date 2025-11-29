@@ -1,4 +1,4 @@
-#include "rhoFilter.hpp"
+#include "rho_filter/rhoFilter.hpp"
 #include <unsupported/Eigen/MatrixFunctions>
 #include <unsupported/Eigen/KroneckerProduct>
 #include <cmath>
