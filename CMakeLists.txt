@@ -1,24 +1,32 @@
 cmake_minimum_required(VERSION 3.14)
 project(rho_filter)
 
-set(CMAKE_CXX_STANDARD 17) # Which should I use? Latest? 17? What's best for ROS2?
+set(CMAKE_CXX_STANDARD 17)
 
-# Try to find Eigen3 via Config mode (Homebrew standard)
-find_package(Eigen3 3.3 QUIET CONFIG)
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(Eigen3 REQUIRED)
 
-if(EIGEN3_FOUND)
-    include_directories(${EIGEN3_INCLUDE_DIR})
-else()
-    # Fallback: Look in local directory if brew version isn't found
-    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/eigen)
-endif()
+include_directories(include ${Eigen3_INCLUDE_DIRS})
 
-if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    # -O3: Maximum optimization
-    # -march=native: Use architecture-specific instructions (AVX/NEON) available on THIS computer
-    # -DNDEBUG: Disables all assert() calls (crucial for speed benchmarking)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -march=native -DNDEBUG")
-endif()
+# Compile the core logic as a separate library
+add_library(rho_filter_lib src/rhoFilter.cpp)
+target_link_libraries(rho_filter_lib Eigen3::Eigen)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -fsanitize=address -fno-omit-frame-pointer")
-add_executable(rhoFilter main.cpp rhoFilter.cpp)
+# Compile the ROS node
+add_executable(rho_filter_node src/rho_node.cpp)
+ament_target_dependencies(rho_filter_node rclcpp std_msgs)
+
+# Link the node to the logic library and Eigen
+target_link_libraries(rho_filter_node rho_filter_lib Eigen3::Eigen)
+
+install(TARGETS
+  rho_filter_lib
+  rho_filter_node
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION lib/${PROJECT_NAME}
+)
+
+ament_package()
