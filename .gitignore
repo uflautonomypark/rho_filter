@@ -1,6 +1,8 @@
 # custom 
 build
 *.lyx~
+*.js
+*.wasm
 
 # CMake
 CMakeLists.txt.user
