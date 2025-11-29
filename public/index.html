@@ -4,27 +4,31 @@
   <meta charset="utf-8" />
   <title>Lur’e Observer – Wasm Backend</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  
   <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
+  
   <script src="rho_wasm.js"></script>
+  
   <style>
-    :root{ --bg:#0b0d12; --panel:#11141b; --muted:#a7b0c0; --text:#e9eef6; --accent:#7c9cff; --ok:#1cc88a; --warn:#f59e0b; }
+    :root{ --bg:#0b0d12; --panel:#11141b; --muted:#a7b0c0; --text:#e9eef6; --accent:#7c9cff; --ok:#1cc88a; --warn:#f59e0b; --err:#ef4444; }
     *{box-sizing:border-box}
     body{margin:0;background:var(--bg);color:var(--text);font:14px/1.4 system-ui, sans-serif}
     .wrap{max-width:1200px;margin:0 auto;padding:24px}
     .grid{display:grid;grid-template-columns:1fr 2fr;gap:16px}
+    @media (max-width: 900px){ .grid{grid-template-columns:1fr} }
     .card{background:var(--panel);border:1px solid #1a2232;border-radius:14px;box-shadow:0 6px 24px rgba(0,0,0,.25)}
     .card .hd{padding:14px 16px;border-bottom:1px solid #1a2232;font-weight:600}
     .card .bd{padding:16px}
     .row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
     .row.space{justify-content:space-between}
     .muted{color:var(--muted)}
-    .btn{border:1px solid #2a3349;background:#182134;color:var(--text);padding:8px 12px;border-radius:10px;cursor:pointer}
+    .btn{appearance:none;border:1px solid #2a3349;background:#182134;color:var(--text);padding:8px 12px;border-radius:10px;cursor:pointer}
     .btn:hover{background:#1c2840}
     .btn.secondary{background:#0f1726}
-    .number{width:90px;background:#0f1726;border:1px solid #28314a;color:var(--text);padding:6px 8px;border-radius:8px}
+    .input, .number{width:90px;background:#0f1726;border:1px solid #28314a;color:var(--text);padding:6px 8px;border-radius:8px}
     .toggle{width:38px;height:24px;border-radius:999px;background:#1b263b;border:1px solid #273352;position:relative;cursor:pointer}
     .toggle .dot{position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#6b7386;transition:all .15s}
     .toggle.on{background:#173a26;border-color:#234f3b}
@@ -32,160 +36,215 @@
     .knob{margin:12px 0}
     .knob label{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:4px}
     .slider{width:100%}
+    .pill{display:inline-block;padding:2px 8px;background:#0f1a2f;border:1px solid #223255;border-radius:999px;color:#b7c3da}
     canvas{background:#0a0f1c;border-radius:12px;border:1px solid #1a2232}
-    .legend{display:flex;gap:8px;margin-top:8px}
+    .legend{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
     .dot{display:inline-block;width:10px;height:10px;border-radius:999px;margin-right:6px}
+    .loading{text-align:center;padding:40px;color:var(--warn);font-size:18px;}
   </style>
 </head>
 <body>
   <div id="root"></div>
+
   <script type="text/babel">
     const {useEffect,useMemo,useRef,useState,useCallback} = React;
-    const clamp = (x,l,h)=>Math.max(l,Math.min(h,x));
+    const clamp = (x,lo,hi)=>Math.max(lo,Math.min(hi,x));
 
-    function Toggle({c,fn}) {
-      return <div className={"toggle"+(c?" on":"")} onClick={()=>fn(!c)}><div className="dot"></div></div>;
-    }
+    // --- UI Components ---
+    const Toggle = ({checked,onChange}) => (
+      <div className={"toggle"+(checked?" on":"")} onClick={()=>onChange(!checked)}>
+        <div className="dot"></div>
+      </div>
+    );
 
-    function Knob({l,v,fn,min,max,step=0.1}) {
-      return (
-        <div className="knob">
-          <label><span>{l}</span><input className="number" type="number" step={step} value={v} onChange={e=>fn(clamp(Number(e.target.value),min,max))}/></label>
-          <input className="slider" type="range" min={min} max={max} step={step} value={v} onChange={e=>fn(Number(e.target.value))}/>
-        </div>
-      );
-    }
+    const Knob = ({label,value,setValue,min,max,step=0.01}) => (
+      <div className="knob">
+        <label><span>{label}</span><input className="number" type="number" step={step} value={value} onChange={e=>setValue(clamp(Number(e.target.value),min,max))}/></label>
+        <input className="slider" type="range" min={min} max={max} step={step} value={clamp(value,min,max)} onChange={e=>setValue(Number(e.target.value))}/>
+      </div>
+    );
 
-    function useChart(ref) {
-      const chart = useRef(null);
+    // --- Chart Hook ---
+    function useLineChart(canvasRef) {
+      const chartRef = useRef(null);
       useEffect(()=>{
-        chart.current = new Chart(ref.current.getContext('2d'), {
+        const ctx = canvasRef.current.getContext('2d');
+        chartRef.current = new Chart(ctx,{
           type:'line',
           data:{ datasets:[
-            {label:'e', data:[], borderColor:'#1cc88a', borderWidth:2, pointRadius:0},
-            {label:'p', data:[], borderColor:'#7c9cff', borderWidth:1, pointRadius:0},
-            {label:'hp', data:[], borderColor:'#f59e0b', borderWidth:1, pointRadius:0}
+            {label:'eₚ', data:[], borderWidth:2, borderColor:'#1cc88a', pointRadius:0},
+            {label:'p', data:[], borderWidth:1.5, borderColor:'#7c9cff', pointRadius:0},
+            {label:'p̂', data:[], borderWidth:1.5, borderColor:'#f59e0b', pointRadius:0},
           ]},
-          options:{ animation:false, parsing:false, scales:{ x:{type:'linear', display:false} }, plugins:{legend:{display:false}} }
+          options:{ animation:false, parsing:false, maintainAspectRatio:false, scales:{ x:{type:'linear', ticks:{color:'#9fb0c8'}, grid:{color:'#22304a'}}, y:{ticks:{color:'#9fb0c8'}, grid:{color:'#22304a'}} }, plugins:{legend:{labels:{color:'#cfe3ff'}}} }
         });
-        return ()=>chart.current.destroy();
+        return ()=>chartRef.current?.destroy();
       },[]);
-      return {
-        push: (t,e,p,hp) => {
-          const c=chart.current; if(!c)return;
+
+      return useMemo(()=>({
+        push: (t, ep, p, phat) => {
+          const c=chartRef.current; if(!c) return;
           const ds=c.data.datasets;
-          ds[0].data.push({x:t,y:e}); ds[1].data.push({x:t,y:p}); ds[2].data.push({x:t,y:hp});
-          if(ds[0].data.length>1000) ds.forEach(d=>d.data.shift());
-          c.update('none');
+          ds[0].data.push({x:t,y:ep}); ds[1].data.push({x:t,y:p}); ds[2].data.push({x:t,y:phat});
+          if(ds[0].data.length>2000) ds.forEach(d=>d.data.shift());
         },
-        reset: () => chart.current?.data.datasets.forEach(d=>d.data=[])
-      };
+        reset: (t0, ep0, p0, phat0) => {
+          const c=chartRef.current; if(!c) return;
+          c.data.datasets.forEach(d=>d.data.length=0);
+          c.data.datasets[0].data.push({x:t0,y:ep0});
+          c.data.datasets[1].data.push({x:t0,y:p0});
+          c.data.datasets[2].data.push({x:t0,y:phat0});
+          c.update();
+        },
+        update: () => chartRef.current?.update('none'),
+        exportCSV: () => {
+           const c=chartRef.current; if(!c) return;
+           const d=c.data.datasets; let csv="t,ep,p,phat\n";
+           d[0].data.forEach((p,i)=> csv+=`${p.x},${p.y},${d[1].data[i].y},${d[2].data[i].y}\n`);
+           const url=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+           const a=document.createElement("a"); a.href=url; a.download="trace.csv"; a.click();
+        }
+      }),[]);
     }
 
+    // --- Main App ---
     function App(){
       const [wasm, setWasm] = useState(null);
-      const filter = useRef(null);
       
-      const [w, setW] = useState(2.0);
-      const [A, setA] = useState(1.0);
-      const [phi, setPhi] = useState(0.0);
-      
-      const [k1, setK1] = useState(1.0);
-      const [k2, setK2] = useState(1.0);
-      const [k3, setK3] = useState(1.0);
-      const [alpha, setAlpha] = useState(1.0);
-      
-      const [run, setRun] = useState(false);
-      const cvs = useRef(null);
-      const chart = useChart(cvs);
-      
-      const sim = useRef({t:0, q:0, p:0});
-
+      // Load Wasm Module Once
       useEffect(() => {
-        createRhoModule().then(m => setWasm(m));
+        createRhoModule().then(Module => setWasm(Module));
       }, []);
 
-      const reset = useCallback(() => {
-        if(!wasm) return;
-        if(filter.current) filter.current.delete();
-        filter.current = new wasm.RhoFilter(0.01, 1, alpha, k1, k2, k3);
-        sim.current = { t:0, q:A*Math.sin(phi), p:A*w*Math.cos(phi) };
-        chart.reset();
-      }, [wasm, alpha, k1, k2, k3, A, w, phi]);
+      if (!wasm) return <div className="loading">Loading Wasm Engine...</div>;
+      return <Simulation wasm={wasm} />;
+    }
 
+    function Simulation({ wasm }) {
+      // Plant Params
+      const [omega,setOmega] = useState(2.0);
+      const [A,setA] = useState(1.0);
+      const [phi,setPhi] = useState(0.0);
+      // Filter Gains
+      const [k1,setK1] = useState(1.0);
+      const [k2,setK2] = useState(1.0);
+      const [k3,setK3] = useState(1.0);
+      const [alpha,setAlpha] = useState(1.0);
+      
+      const [running,setRunning] = useState(false);
+      const [autoReset,setAutoReset] = useState(true);
+      
+      const filterRef = useRef(null); // C++ Pointer
+      const simState = useRef({ t:0, q:0, p:0, hp:0 });
+      const canvasRef = useRef(null);
+      const chart = useLineChart(canvasRef);
+      const [dtMs, setDtMs] = useState(10); // Default 10ms
+      const dt = dtMs / 1000; // Derived seconds
+
+      // Reset Simulation & Rebuild C++ Filter
+      const reset = useCallback(() => {
+        if(filterRef.current) filterRef.current.delete(); // Prevent memory leak
+        
+        // Constructor: (dt, dim, alpha, k1, k2, k3)
+        filterRef.current = new wasm.RhoFilter(dt, 1, alpha, k1, k2, k3);
+        
+        simState.current = { t:0, q: (A/omega)*Math.sin(phi), p: A*Math.cos(phi), hp:0 };
+        chart.reset(0, simState.current.p, simState.current.p, 0);
+      }, [wasm, dt, A, omega, phi, alpha, k1, k2, k3, chart]);
+
+      // Initial Reset
+      useEffect(() => { reset(); }, []); 
+      
+      // Auto-Reset on Gain Change
+      useEffect(() => { if(autoReset) reset(); }, [autoReset, A, omega, phi, alpha, k1, k2, k3, reset]);
+
+      // Physics Loop
       useEffect(() => {
         let raf;
-        const dt = 0.01;
         const loop = () => {
-          if(run && filter.current && wasm) {
-            const s = sim.current;
-            // Plant (Euler)
-            s.q += s.p * dt;
-            s.p += (-w*w * s.q) * dt;
-            s.t += dt;
+          if (running && filterRef.current) {
+             const s = simState.current;
 
-            // Wasm Filter
-            const vin = new wasm.VectorDouble();
-            vin.push_back(s.q);
-            const vout = filter.current.update(vin);
-            const hp = vout.get(vout.size()-1); 
-            
-            // Memory cleanup is mandatory
-            vin.delete();
-            vout.delete();
+             // 1. Plant Physics (JS) - Simple Harmonic Oscillator
+             s.q += s.p * dt;
+             s.p += (-omega*omega * s.q) * dt;
+             s.t += dt;
 
-            chart.push(s.t, s.p - hp, s.p, hp);
+             // 2. Filter Step (C++)
+             const input = new wasm.VectorDouble();
+             input.push_back(s.q);
+             
+             const output = filterRef.current.update(input);
+             // Assume last element is estimated p (based on context)
+             s.hp = output.get(output.size()-1); 
+
+             // Cleanup C++ vectors
+             input.delete();
+             output.delete();
+
+             // 3. Chart
+             chart.push(s.t, s.p - s.hp, s.p, s.hp);
+             chart.update();
           }
           raf = requestAnimationFrame(loop);
         };
         raf = requestAnimationFrame(loop);
         return () => cancelAnimationFrame(raf);
-      }, [run, w, wasm]);
+      }, [running, omega, wasm, chart]);
 
       return (
         <div className="wrap">
-          <h1>Lur’e Observer (Wasm)</h1>
+          <h1>Lur’e Observer — Wasm Backend</h1>
           <div className="grid">
             <div className="card">
-              <div className="hd">Controls {!wasm && "(Loading Wasm...)"}</div>
+              <div className="hd">Controls</div>
               <div className="bd">
-                <div className="row space">
-                  <div className="row"><span>Run</span><Toggle c={run} fn={setRun}/></div>
-                  <button className="btn secondary" onClick={reset}>Reset / Apply Gains</button>
-                </div>
-                
-                <div className="knob-group" style={{marginTop:20}}>
-                  <div className="hd" style={{paddingLeft:0}}>Plant</div>
-                  <Knob l="ω" v={w} fn={setW} min={0.1} max={10}/>
-                  <Knob l="Amp" v={A} fn={setA} min={0.1} max={5}/>
-                  <Knob l="Phi" v={phi} fn={setPhi} min={-3.14} max={3.14}/>
-                </div>
+                 <div className="row space">
+                   <div className="row"><span>Run</span><Toggle checked={running} onChange={setRunning}/></div>
+                   <button className="btn secondary" onClick={reset}>Hard Reset</button>
+                 </div>
+                 <div className="row space" style={{marginTop:10}}>
+                   <div className="row"><span className="muted">Auto-reset</span><Toggle checked={autoReset} onChange={setAutoReset}/></div>
+                   <button className="btn" onClick={chart.exportCSV}>Export CSV</button>
+                 </div>
 
-                <div className="knob-group" style={{marginTop:20}}>
-                  <div className="hd" style={{paddingLeft:0}}>Observer (C++)</div>
-                  <Knob l="α" v={alpha} fn={setAlpha} min={0} max={20}/>
-                  <Knob l="k1" v={k1} fn={setK1} min={0} max={20}/>
-                  <Knob l="k2" v={k2} fn={setK2} min={0} max={20}/>
-                  <Knob l="k3" v={k3} fn={setK3} min={0} max={20}/>
-                </div>
+                 <div className="card" style={{marginTop:15}}>
+                   <div className="hd">Plant (JS)</div>
+                   <div className="bd">
+                     <Knob label="ω (rad/s)" value={omega} setValue={setOmega} min={0.1} max={10}/>
+                     <Knob label="Amplitude" value={A} setValue={setA} min={0.1} max={5}/>
+                     <Knob label="Phase" value={phi} setValue={setPhi} min={-3.14} max={3.14}/>
+                   </div>
+                 </div>
+
+                 <div className="card" style={{marginTop:15}}>
+                   <div className="hd">Filter (C++)</div>
+                   <div className="bd">
+                     <Knob label="Alpha" value={alpha} setValue={setAlpha} min={0} max={20}/>
+                     <Knob label="K1" value={k1} setValue={setK1} min={-10} max={50}/>
+                     <Knob label="K2" value={k2} setValue={setK2} min={-10} max={50}/>
+                     <Knob label="K3" value={k3} setValue={setK3} min={-10} max={50}/>
+                   </div>
+                 </div>
               </div>
             </div>
 
-            <div className="card">
-              <div className="hd">Estimation Error (e = p - p̂)</div>
-              <div className="bd">
-                <canvas ref={cvs} height="300"></canvas>
-                <div className="legend">
-                  <div><span className="dot" style={{background:'#1cc88a'}}></span>e</div>
-                  <div><span className="dot" style={{background:'#7c9cff'}}></span>p</div>
-                  <div><span className="dot" style={{background:'#f59e0b'}}></span>hp</div>
-                </div>
-              </div>
+            <div className="card" style={{minHeight:480}}>
+               <div className="hd">Estimation Error (eₚ)</div>
+               <div className="bd" style={{height:420}}>
+                 <canvas ref={canvasRef}></canvas>
+                 <div className="legend">
+                   <div><span className="dot" style={{background:'#1cc88a'}}></span>eₚ</div>
+                   <div><span className="dot" style={{background:'#7c9cff'}}></span>True p</div>
+                   <div><span className="dot" style={{background:'#f59e0b'}}></span>Est p</div>
+                 </div>
+               </div>
             </div>
           </div>
         </div>
       );
     }
+
     const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(<App/>);
   </script>
