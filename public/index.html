@@ -203,9 +203,15 @@
                    <div className="row"><span>Run</span><Toggle checked={running} onChange={setRunning}/></div>
                    <button className="btn secondary" onClick={reset}>Hard Reset</button>
                  </div>
+                 
                  <div className="row space" style={{marginTop:10}}>
                    <div className="row"><span className="muted">Auto-reset</span><Toggle checked={autoReset} onChange={setAutoReset}/></div>
                    <button className="btn" onClick={chart.exportCSV}>Export CSV</button>
+                 </div>
+
+                 {/* New Time Step Control */}
+                 <div className="row" style={{marginTop:10}}>
+                   <Knob label="Time Step (ms)" value={dtMs} setValue={setDtMs} min={1} max={50} step={1}/>
                  </div>
 
                  <div className="card" style={{marginTop:15}}>
