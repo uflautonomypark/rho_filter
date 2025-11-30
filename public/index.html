@@ -148,7 +148,7 @@
         // Constructor: (dt, dim, alpha, k1, k2, k3)
         filterRef.current = new wasm.RhoFilter(dt, 1, alpha, k1, k2, k3);
         
-        simState.current = { t:0, q: (A/omega)*Math.sin(phi), p: A*Math.cos(phi), hp:0 };
+        simState.current = { t:0, q: A*Math.sin(phi), p: A*omega*Math.cos(phi), hp:0 };
         chart.reset(0, simState.current.p, simState.current.p, 0);
       }, [wasm, dt, A, omega, phi, alpha, k1, k2, k3, chart]);
 
@@ -226,10 +226,10 @@
                  <div className="card" style={{marginTop:15}}>
                    <div className="hd">Filter (C++)</div>
                    <div className="bd">
-                     <Knob label="Alpha" value={alpha} setValue={setAlpha} min={0} max={20}/>
                      <Knob label="K1" value={k1} setValue={setK1} min={-10} max={50}/>
                      <Knob label="K2" value={k2} setValue={setK2} min={-10} max={50}/>
                      <Knob label="K3" value={k3} setValue={setK3} min={-10} max={50}/>
+                     <Knob label="Alpha" value={alpha} setValue={setAlpha} min={0} max={20}/>
                    </div>
                  </div>
               </div>
