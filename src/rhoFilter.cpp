@@ -88,6 +88,11 @@ void rhoFilter::propagate_filter(const Eigen::MatrixXd& last_position) // q_k, w
     v += last_position;
     next_zeta.noalias() = A_d * zeta;
     next_zeta.noalias() += B_q * last_position;
-    next_zeta.noalias() += alpha * B_s * v.cwiseSign();
+    double epsilon = 0.5; 
+
+    // Apply tanh element-wise
+    next_zeta.noalias() += alpha * B_s * v.unaryExpr([epsilon](double x){ 
+        return std::tanh(x / epsilon); 
+    });
     zeta = next_zeta;
 }
