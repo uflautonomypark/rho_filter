@@ -190,7 +190,7 @@
         };
         raf = requestAnimationFrame(loop);
         return () => cancelAnimationFrame(raf);
-      }, [running, omega, wasm, chart]);
+      }, [running, omega, wasm, chart, dt]);
 
       return (
         <div className="wrap">
