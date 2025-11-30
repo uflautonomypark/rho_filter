@@ -21,13 +21,14 @@ private:
     double sampling_time;
     double alpha;
     double k1, k2, k3;
-    Eigen::MatrixXd M, N, E, S;
-    Eigen::MatrixXd M_inv, A_d, I_n, I_4n, B_q, B_s;
+
+    int zeta_dim, num_inputs;
     Eigen::MatrixXd m, n, e, s;
+    Eigen::MatrixXd I_4, I_n;
     double m_12, m_13, m_14, m_32, m_33, m_42, m_43;
     double n_12, n_13, n_14;
-    Eigen::MatrixXd v;
-    Eigen::MatrixXd next_zeta;
+    Eigen::MatrixXd m_inv, a_d, b_q, b_s, A_d, B_q, B_s, S;
+    Eigen::MatrixXd v, next_zeta;
 };
 
 #endif
