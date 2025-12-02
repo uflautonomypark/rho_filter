@@ -5,20 +5,20 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# 1. Build Settings
+# 1. Build Settings for speed test
 # Force Release mode for accurate benchmarking
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
-# Optimization Flags
+# Optimization Flags for speed test
 if(MSVC)  # Microsoft Windows only
     add_compile_options(/O2 /Ob2)
 else()
     add_compile_options(-O3 -march=native) # Target architecture
 endif()
 
-# 2. Dependencies (Eigen)
+# 2. Dependencies
 find_package(Eigen3 3.3 QUIET)
 
 if(NOT Eigen3_FOUND)
@@ -34,7 +34,6 @@ else()
     include_directories(${EIGEN3_INCLUDE_DIR})
 endif()
 
-# Global Include Path (allows #include "rho_filter/rhoFilter.hpp")
 include_directories(include)
 
 # 3. Targets
