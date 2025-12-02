@@ -5,12 +5,14 @@
 
 class rhoFilter {
 public:
-    rhoFilter(double sampling_time,
-               int state_space_dim,
-               double alpha,
-               double k1,
-               double k2,
-               double k3);
+    rhoFilter(
+        double sampling_time,
+        int state_space_dim,
+        double alpha,
+        double k1,
+        double k2,
+        double k3
+    );
 
     Eigen::MatrixXd propagate_filter(const Eigen::MatrixXd&);
 
@@ -19,10 +21,11 @@ public:
 
 private:
     double sampling_time;
-    double alpha;
-    double k1, k2, k3;
+    double k1, k2, k3, alpha;
+    int state_space_dim;
 
-    int zeta_dim, state_space_dim;
+    int zeta_dim;
+    double det, invDet;
     Eigen::MatrixXd m, n, e, s;
     Eigen::MatrixXd I_4, I_n;
     double m_12, m_13, m_14, m_32, m_33, m_42, m_43;

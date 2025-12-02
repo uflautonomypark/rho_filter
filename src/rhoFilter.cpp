@@ -42,8 +42,8 @@ rhoFilter::rhoFilter(
          m_14,  0,      m_43,  -k3;
 
     // The below replaces one line: m_inv = m.colPivHouseholderQr().inverse();
-    double det = pow(k1, 4) + 2*pow(k1, 3)*k2 + pow(k1, 2)*pow(k2, 2) + pow(k1, 2)*k2*k3 + k1*k2 + 2*k1*k3 + 1;
-    double invDet = 1.0 / det;
+    det = pow(k1, 4) + 2*pow(k1, 3)*k2 + pow(k1, 2)*pow(k2, 2) + pow(k1, 2)*k2*k3 + k1*k2 + 2*k1*k3 + 1;
+    invDet = 1.0 / det;
     m_inv(0, 0) = 0;
     m_inv(0, 1) = (k1*(-k1 - k2 - k3)) * invDet;
     m_inv(0, 2) = (2*pow(k1, 3) + 3*pow(k1, 2)*k2 + pow(k1, 2)*k3 + k1*pow(k2, 2) + k1*k2*k3 + k3) * invDet;
