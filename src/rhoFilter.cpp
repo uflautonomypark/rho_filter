@@ -2,7 +2,6 @@
 #include <unsupported/Eigen/MatrixFunctions>
 #include <unsupported/Eigen/KroneckerProduct>
 #include <cmath>
-#include <iostream>
 
 rhoFilter::rhoFilter(
     double sampling_time,
