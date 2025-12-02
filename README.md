@@ -73,7 +73,7 @@ Run these commands from the **project root**.
 
 (Ensure .\emsdk_env.bat has been run in this session)
 
-emcc src/rhoFilter.cpp src/rho_filter/rhoFilter.cpp `
+emcc src/rhoFilter.cpp src/bindings.cpp `
   -O3 `
   -s WASM=1 `
   -s MODULARIZE=1 `
@@ -82,34 +82,16 @@ emcc src/rhoFilter.cpp src/rho_filter/rhoFilter.cpp `
   -I eigen `
   -o rho_wasm.js
 
-### macOS
+### macOS/Linux
 
 (Adjust include path -I if your Homebrew location differs)
 
-emcc src/rhoFilter.cpp src/rho_filter/rhoFilter.cpp \
-  -O3 \
-  -s WASM=1 \
-  -s MODULARIZE=1 \
-  -s EXPORT_NAME='createRhoModule' \
-  --bind \
-  -I /opt/homebrew/include/eigen3 \
-  -o rho_wasm.js
-
-### Linux
-
-emcc src/rhoFilter.cpp src/rho_filter/rhoFilter.cpp \
-  -O3 \
-  -s WASM=1 \
-  -s MODULARIZE=1 \
-  -s EXPORT_NAME='createRhoModule' \
-  --bind \
-  -I /usr/include/eigen3 \
-  -o rho_wasm.js
+emcc -O3 -Iinclude -I/opt/homebrew/include/eigen3 src/rhoFilter.cpp src/bindings.cpp -o public/rho_wasm.js -s WASM=1 -s MODULARIZE=1 -s EXPORT_NAME="createRhoModule" -s ALLOW_MEMORY_GROWTH=1 -s NO_DISABLE_EXCEPTION_CATCHING --bind
 
 ## 3. Running
 
 Browsers block Wasm loading from local files. Serve via HTTP from the project root:
 
-python3 -m http.server 8000
+python3 -m http.server -d public 8000
 
 Open http://localhost:8000 in your browser.
