@@ -1,44 +1,49 @@
 #include <emscripten/bind.h>
-#include <vector>
 #include "rho_filter/rhoFilter.hpp"
+#include <vector>
 
 using namespace emscripten;
 
-// Wrapper to handle Eigen <-> std::vector conversions for JS
-class RhoFilterWASM {
+// Wrapper class to handle std::vector <-> Eigen conversion for Wasm
+class RhoFilterWasm {
 public:
-    RhoFilterWASM(double ts, int dim, double alpha, double k1, double k2, double k3) {
-        // Instantiate the actual filter
-        filter = std::make_unique<rhoFilter>(ts, dim, alpha, k1, k2, k3);
+    rhoFilter* filter;
+    int dim;
+
+    RhoFilterWasm(double dt, int state_dim, double alpha, double k1, double k2, double k3) {
+        dim = state_dim;
+        filter = new rhoFilter(dt, dim, alpha, k1, k2, k3);
     }
 
-    // JS passes a simple array (vector), we convert to Eigen, run filter, return array
-    std::vector<double> update(const std::vector<double>& input_flat) {
-        int dim = input_flat.size();
-        
-        // Map std::vector to Eigen::Vector
-        Eigen::Map<const Eigen::VectorXd> input(input_flat.data(), dim);
-        
-        // Run logic
-        filter->propagate_filter(input);
+    ~RhoFilterWasm() { delete filter; }
 
-        // Extract result (zeta is 4*n). 
-        // We copy the whole state vector back to JS.
-        std::vector<double> output(filter->zeta.size());
-        Eigen::VectorXd::Map(output.data(), output.size()) = filter->zeta;
+    std::vector<double> update(const std::vector<double>& input) {
+        // 1. Convert JS Array (std::vector) to Eigen Input
+        Eigen::MatrixXd u(dim, 1);
+        for(int i=0; i<dim; ++i) {
+            u(i,0) = input[i];
+        }
+
+        // 2. Call Core Math (Returns p_hat)
+        Eigen::MatrixXd res = filter->propagate_filter(u);
+
+        // 3. Convert Eigen Result back to JS Array
+        // Since propogate_filter now returns ONLY p_hat, we copy exactly that.
+        std::vector<double> out;
+        for(int i=0; i<res.size(); ++i) {
+            out.push_back(res(i));
+        }
         
-        return output;
+        // Result: [p_hat_0, p_hat_1, ...] 
+        // For dim=1, this is just [p_hat]
+        return out; 
     }
-
-private:
-    std::unique_ptr<rhoFilter> filter;
 };
 
-// Expose to JavaScript
-EMSCRIPTEN_BINDINGS(rho_filter_module) {
+EMSCRIPTEN_BINDINGS(rho_module) {
     register_vector<double>("VectorDouble");
-
-    class_<RhoFilterWASM>("RhoFilter")
+    
+    class_<RhoFilterWasm>("RhoFilter")
         .constructor<double, int, double, double, double, double>()
-        .function("update", &RhoFilterWASM::update);
+        .function("update", &RhoFilterWasm::update);
 }
