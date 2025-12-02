@@ -21,6 +21,7 @@
         "specialfunctions": "cpp",
         "splines": "cpp",
         "dense": "cpp",
-        "matrixfunctions": "cpp"
+        "matrixfunctions": "cpp",
+        "chrono": "cpp"
     }
 }
