@@ -5,7 +5,7 @@
 <package format="3">
     <name>rho_filter</name>
     <version>0.0.1</version>
-    <description>Rho Filter: Cristian Nino's Late 2025 version with exponential convergence and RISE components. Estimates only derivative higher than what is measurable.</description>
+    <description>Rho Filter: A RISE-based differentiator by Cristian Nino with exponential convergence. Estimates only one derivative higher than what is measurable.</description>
     <maintainer email="mgardenswartz@ufl.edu">user</maintainer>
     <license>MPL-2.0</license>
 
