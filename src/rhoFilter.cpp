@@ -65,16 +65,6 @@ rhoFilter::rhoFilter(
     m_inv(3, 2) = (pow(k1, 4) + pow(k1, 3)*k2 - pow(k1, 3)*k3 - pow(k1, 2)*k2*k3 - 4*pow(k1, 2) - 5*k1*k2 + k1*k3 - pow(k2, 2) + k2*k3 - 1) * invDet;
     m_inv(3, 3) = (-2*pow(k1, 2)*k2 - pow(k1, 2)*k3 - k1*pow(k2, 2) - k1*k2*k3 - 5*k1 - 2*k2) * invDet;
 
-    // // Check M * M_inv ~ Identity
-    // Eigen::Matrix4d identity_check = m * m_inv;
-
-    // std::cout << "M * M_inv (Should be Identity):" << std::endl;
-    // std::cout << identity_check << std::endl;
-
-    // // Quantitative check
-    // double error = (identity_check - Eigen::Matrix4d::Identity()).norm();
-    // std::cout << "Inverse Error Norm: " << error << std::endl;
-
     n_12 = 3 - pow(k1,2) + (2*k1 + k2 + k3)*(k1 + k2);
     n_13 = k1 + k2;
     n_14 = 1 + (k1 + k2)*(k3 - k1);
